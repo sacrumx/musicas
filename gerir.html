@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Gerir músicas</title>
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { padding-bottom: 60px; }
+    [hidden] { display: none !important; }
+    a.btn { color: inherit; text-decoration: none; }
+    .pagina { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 36px 16px 0; }
+    .cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 26px; }
+    .cab h1 { font-size: clamp(28px, 6vw, 40px); margin: 0; }
+    .cab a { color: var(--texto-2); text-decoration: none; font-weight: 500; white-space: nowrap; }
+    .cab a:hover { color: var(--destaque); }
+
+    .cartao {
+      background: var(--cartao); border: 1px solid var(--linha); border-radius: 18px;
+      padding: 22px; margin-bottom: 18px;
+    }
+    .cartao h2 { font-family: var(--serif); font-size: 22px; margin: 0 0 6px; }
+    .cartao > p { color: var(--texto-2); margin: 0 0 16px; }
+    .passos { margin: 0 0 18px; padding-left: 22px; color: var(--texto-2); }
+    .passos li { margin-bottom: 8px; }
+    .passos b { color: var(--texto); }
+
+    label.campo { display: block; font-size: 14px; color: var(--texto-2); margin-bottom: 12px; }
+    .entrada {
+      display: block; width: 100%; margin-top: 6px;
+      font: inherit; color: var(--texto);
+      background: var(--fundo-2); border: 1px solid var(--linha); border-radius: 10px;
+      padding: 11px 12px; outline: 0;
+    }
+    .entrada:focus { border-color: var(--destaque); }
+    .linha2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .erro { color: #e5484d; font-size: 14px; margin: 8px 0 0; }
+    .ok { color: #3fb37f; }
+
+    .zona {
+      display: grid; place-items: center; text-align: center;
+      border: 2px dashed var(--linha); border-radius: 18px;
+      padding: 38px 16px; cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .zona:hover, .zona.sobre { border-color: var(--destaque); background: color-mix(in srgb, var(--destaque) 8%, transparent); }
+    .zona svg { width: 44px; height: 44px; fill: var(--destaque); margin-bottom: 8px; }
+    .zona strong { font-size: 18px; display: block; }
+    .zona span { color: var(--texto-2); font-size: 14px; }
+
+    .pendentes { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; }
+    .pend {
+      border: 1px solid var(--linha); border-radius: 14px; padding: 12px;
+      display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: start;
+      background: var(--fundo-2);
+    }
+    .pend .capa { cursor: pointer; position: relative; }
+    .pend .capa::after {
+      content: "+ capa"; position: absolute; inset: auto 0 0 0;
+      font: 700 9px var(--sans); letter-spacing: .04em; text-transform: uppercase;
+      background: rgba(0,0,0,.55); color: #fff; padding: 2px 0; text-align: center;
+    }
+    .pend .capa.tem::after { content: "mudar"; }
+    .pend-nome { font-weight: 700; font-size: 14px; word-break: break-word; margin-bottom: 6px; }
+    .pend-nome small { color: var(--texto-3); font-weight: 400; }
+    .pend .entrada { padding: 8px 10px; margin-top: 0; font-size: 15px; }
+    .barra-envio { height: 4px; background: var(--linha); border-radius: 4px; margin-top: 8px; overflow: hidden; display: none; }
+    .barra-envio i { display: block; height: 100%; width: 0; background: var(--destaque); transition: width .2s; }
+    .a-enviar .barra-envio { display: block; }
+
+    .acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
+    .btn[disabled] { opacity: .5; pointer-events: none; }
+
+    .estado {
+      display: none; align-items: center; gap: 12px;
+      border-radius: 14px; padding: 14px 16px; margin-bottom: 18px;
+      background: var(--fundo-2); border: 1px solid var(--linha); font-weight: 500;
+    }
+    .estado.visivel { display: flex; }
+    .estado.sucesso { border-color: #3fb37f; }
+    .estado.falha { border-color: #e5484d; }
+    .estado a { color: var(--destaque); }
+    .roda { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--linha); border-top-color: var(--destaque); animation: girar .8s linear infinite; flex: none; }
+
+    .existentes { list-style: none; margin: 0; padding: 0; }
+    .exist {
+      display: grid; grid-template-columns: 46px 1fr auto; gap: 12px; align-items: center;
+      padding: 10px 0; border-top: 1px solid var(--linha);
+    }
+    .exist:first-child { border-top: 0; }
+    .exist .capa { width: 46px; height: 46px; font-size: 15px; }
+    .exist-texto { min-width: 0; }
+    .exist-texto strong, .exist-texto span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .exist-texto span { color: var(--texto-2); font-size: 14px; }
+    .exist-edita { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
+    .exist-edita .entrada { margin: 0; padding: 8px 10px; }
+    .icone.perigo:hover { color: #e5484d; }
+    .vazio-mini { color: var(--texto-3); margin: 0; }
+    .rodape-gerir { text-align: center; margin-top: 26px; }
+    .rodape-gerir button { background: none; border: 0; color: var(--texto-3); cursor: pointer; text-decoration: underline; font-size: 14px; }
+
+    @media (max-width: 560px) {
+      .cartao { padding: 18px 14px; }
+      .linha2 { grid-template-columns: 1fr; gap: 6px; }
+      .exist-edita { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="grao" aria-hidden="true"></div>
+  <div class="pagina">
+    <header class="cab">
+      <h1>Gerir músicas</h1>
+      <a href="./">Ver o site →</a>
+    </header>
+
+    <!-- 1. Ligar -->
+    <section class="cartao" id="ligar" hidden>
+      <h2>Ligar ao teu GitHub</h2>
+      <p>Só tens de fazer isto uma vez em cada dispositivo. A chave fica guardada apenas neste browser, e sem ela ninguém consegue mexer nas músicas, mesmo que encontre esta página.</p>
+      <ol class="passos">
+        <li>Carrega em <b>Criar chave no GitHub</b> (abre num separador novo).</li>
+        <li>Em <b>Repository access</b> escolhe <b>Only select repositories</b> e seleciona <b id="nomeRepo">o repositório do site</b>.</li>
+        <li>Desce até ao fim, carrega em <b>Generate token</b> e copia a chave (começa por <code>github_pat_</code>).</li>
+        <li>Cola-a aqui em baixo.</li>
+      </ol>
+      <div class="acoes" style="margin: 0 0 18px">
+        <a class="btn" id="criarChave" target="_blank" rel="noopener">Criar chave no GitHub ↗</a>
+      </div>
+      <div class="linha2" id="campoRepo" hidden>
+        <label class="campo">Utilizador do GitHub<input class="entrada" id="dono" autocomplete="off" autocapitalize="off"></label>
+        <label class="campo">Nome do repositório<input class="entrada" id="repo" autocomplete="off" autocapitalize="off"></label>
+      </div>
+      <label class="campo">Chave
+        <input class="entrada" id="chave" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </label>
+      <div class="acoes"><button class="btn btn-principal" id="btnLigar" type="button">Ligar</button></div>
+      <p class="erro" id="erroLigar" hidden></p>
+    </section>
+
+    <!-- 2. Gerir -->
+    <div id="gerir" hidden>
+      <div class="estado" id="estado" role="status" aria-live="polite"></div>
+
+      <section class="cartao">
+        <h2>Adicionar músicas</h2>
+        <p>MP3 de preferência. Podes juntar imagens com o mesmo nome da música para servirem de capa.</p>
+        <label class="zona" id="zona">
+          <input type="file" id="ficheiros" multiple accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.flac,.wav,image/*" hidden>
+          <div>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.6A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+            <strong>Arrasta músicas para aqui</strong>
+            <span>ou toca para escolher do computador ou telemóvel</span>
+          </div>
+        </label>
+        <ul class="pendentes" id="pendentes"></ul>
+        <div class="acoes" id="acoesEnvio" hidden>
+          <button class="btn btn-principal" id="btnPublicar" type="button">Publicar</button>
+          <button class="btn" id="btnLimpar" type="button">Limpar</button>
+        </div>
+        <p class="erro" id="erroEnvio" hidden></p>
+      </section>
+
+      <section class="cartao">
+        <h2>No site <span id="numExist" style="color:var(--texto-3);font-weight:500"></span></h2>
+        <ul class="existentes" id="existentes"></ul>
+      </section>
+
+      <div class="rodape-gerir"><button id="btnSair" type="button">Desligar este dispositivo</button></div>
+    </div>
+  </div>
+
+  <input type="file" id="ficheiroCapa" accept="image/*" hidden>
+  <div class="aviso" id="aviso" role="status" aria-live="polite" style="bottom:24px"></div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const API = "https://api.github.com";
+  const AUDIO = /\.(mp3|m4a|aac|ogg|oga|opus|flac|wav|webm)$/i;
+  const IMAGEM = /\.(jpe?g|png|webp)$/i;
+  const MAX_MB = 95;
+
+  const guardar = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} };
+  const ler = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+  const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const mb = (b) => (b / 1048576).toFixed(1).replace(".", ",") + " MB";
+  const semExt = (n) => n.replace(/\.[^.]+$/, "");
+
+  let avisoT;
+  const aviso = (t) => { const a = $("aviso"); a.textContent = t; a.classList.add("visivel"); clearTimeout(avisoT); avisoT = setTimeout(() => a.classList.remove("visivel"), 2600); };
+
+  /* ---------- Repositório: deduzido do endereço do site ---------- */
+  function adivinharRepo() {
+    const h = location.hostname, partes = location.pathname.split("/").filter(Boolean);
+    if (h.endsWith(".github.io")) {
+      const dono = h.replace(".github.io", "");
+      const repo = partes.length && !partes[0].includes(".") ? partes[0] : h;
+      return { dono, repo };
+    }
+    return null;
+  }
+
+  let cfg = { dono: ler("gh_dono") || "", repo: ler("gh_repo") || "", chave: ler("gh_chave") || "", ramo: "main" };
+  const palpite = adivinharRepo();
+  if (palpite) { cfg.dono = cfg.dono || palpite.dono; cfg.repo = cfg.repo || palpite.repo; }
+
+  /* ---------- Chamadas à API ---------- */
+  async function gh(caminho, opcoes = {}) {
+    const r = await fetch(API + caminho, {
+      ...opcoes,
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: "Bearer " + cfg.chave,
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...(opcoes.body ? { "Content-Type": "application/json" } : {}),
+      },
+    });
+    if (!r.ok) {
+      let msg = "";
+      try { msg = (await r.json()).message; } catch {}
+      const e = new Error(msg || "Erro " + r.status);
+      e.status = r.status;
+      throw e;
+    }
+    return r.status === 204 ? null : r.json();
+  }
+  const rp = () => `/repos/${encodeURIComponent(cfg.dono)}/${encodeURIComponent(cfg.repo)}`;
+
+  // Envia um ficheiro como "blob" com barra de progresso
+  function enviarBlob(ficheiro, aoProgredir) {
+    return new Promise((resolver, rejeitar) => {
+      const leitor = new FileReader();
+      leitor.onerror = () => rejeitar(new Error("Não consegui ler " + ficheiro.name));
+      leitor.onload = () => {
+        const base64 = String(leitor.result).split(",")[1] || "";
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", API + rp() + "/git/blobs");
+        xhr.setRequestHeader("Accept", "application/vnd.github+json");
+        xhr.setRequestHeader("Authorization", "Bearer " + cfg.chave);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.upload.onprogress = (e) => e.lengthComputable && aoProgredir(e.loaded / e.total);
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolver(JSON.parse(xhr.responseText).sha);
+          else { let m = ""; try { m = JSON.parse(xhr.responseText).message; } catch {} rejeitar(new Error(m || "Erro " + xhr.status)); }
+        };
+        xhr.onerror = () => rejeitar(new Error("Falhou a ligação ao enviar " + ficheiro.name));
+        xhr.send(JSON.stringify({ content: base64, encoding: "base64" }));
+      };
+      leitor.readAsDataURL(ficheiro);
+    });
+  }
+
+  // Um único "commit" com tudo: ficheiros novos, alterados e apagados
+  async function gravar(alteracoes, mensagem) {
+    const ref = await gh(`${rp()}/git/ref/heads/${cfg.ramo}`);
+    const pai = await gh(`${rp()}/git/commits/${ref.object.sha}`);
+    const arvore = await gh(`${rp()}/git/trees`, {
+      method: "POST",
+      body: JSON.stringify({
+        base_tree: pai.tree.sha,
+        tree: alteracoes.map((a) => a.apagar
+          ? { path: a.caminho, mode: "100644", type: "blob", sha: null }
+          : a.sha
+            ? { path: a.caminho, mode: "100644", type: "blob", sha: a.sha }
+            : { path: a.caminho, mode: "100644", type: "blob", content: a.texto }),
+      }),
+    });
+    const commit = await gh(`${rp()}/git/commits`, {
+      method: "POST",
+      body: JSON.stringify({ message: mensagem, tree: arvore.sha, parents: [ref.object.sha] }),
+    });
+    await gh(`${rp()}/git/refs/heads/${cfg.ramo}`, { method: "PATCH", body: JSON.stringify({ sha: commit.sha }) });
+    acompanharPublicacao(commit.sha);
+    return commit.sha;
+  }
+
+  /* ---------- Estado da publicação ---------- */
+  let seguir = 0;
+  function mostrarEstado(html, tipo = "") {
+    const e = $("estado");
+    e.className = "estado visivel " + tipo;
+    e.innerHTML = html;
+  }
+  async function acompanharPublicacao(sha) {
+    const meu = ++seguir;
+    mostrarEstado('<div class="roda"></div><span>Guardado! A atualizar o site… (costuma demorar 1–2 minutos)</span>');
+    const inicio = Date.now();
+    while (meu === seguir && Date.now() - inicio < 6 * 60 * 1000) {
+      await new Promise((r) => setTimeout(r, 6000));
+      let run;
+      try {
+        const d = await gh(`${rp()}/actions/runs?head_sha=${sha}&per_page=1`);
+        run = d.workflow_runs && d.workflow_runs[0];
+      } catch (e) {
+        if (e.status === 403 || e.status === 404) {
+          mostrarEstado('<span>✓ Guardado. O site atualiza sozinho dentro de 1–2 minutos.</span>', "sucesso");
+          return;
+        }
+        continue;
+      }
+      if (!run || meu !== seguir) continue;
+      if (run.status === "completed") {
+        if (run.conclusion === "success") {
+          mostrarEstado('<span class="ok">✓</span><span>Já está no site! <a href="./">Abrir o site</a></span>', "sucesso");
+          carregarExistentes();
+        } else {
+          mostrarEstado(`<span>⚠️ A atualização do site falhou. <a href="${esc(run.html_url)}" target="_blank" rel="noopener">Ver detalhes no GitHub</a></span>`, "falha");
+        }
+        return;
+      }
+    }
+  }
+
+  /* ---------- Ligar ---------- */
+  function linkCriarChave() {
+    const p = new URLSearchParams({
+      name: "Site de musicas",
+      description: "Para carregar músicas a partir da página Gerir músicas",
+      expires_in: "366",
+      contents: "write",
+      actions: "read",
+    });
+    if (cfg.dono) p.set("target_name", cfg.dono);
+    return "https://github.com/settings/personal-access-tokens/new?" + p;
+  }
+
+  function mostrarLigar(erro) {
+    $("gerir").hidden = true;
+    $("ligar").hidden = false;
+    $("campoRepo").hidden = !!palpite && !erro?.repo;
+    $("dono").value = cfg.dono; $("repo").value = cfg.repo;
+    if (cfg.repo) $("nomeRepo").textContent = cfg.repo;
+    $("criarChave").href = linkCriarChave();
+    if (erro) { $("erroLigar").textContent = erro.texto; $("erroLigar").hidden = false; }
+  }
+
+  async function ligar() {
+    $("erroLigar").hidden = true;
+    const repo = await gh(rp());
+    if (!repo.permissions || !repo.permissions.push) {
+      throw Object.assign(new Error("Esta chave só pode ler. Volta a criá-la com Contents: Read and write."), { status: 403 });
+    }
+    cfg.ramo = repo.default_branch || "main";
+    $("ligar").hidden = true;
+    $("gerir").hidden = false;
+    carregarExistentes();
+  }
+
+  $("btnLigar").addEventListener("click", async () => {
+    cfg.chave = $("chave").value.trim();
+    if (!$("campoRepo").hidden) { cfg.dono = $("dono").value.trim(); cfg.repo = $("repo").value.trim(); }
+    if (!cfg.chave) return;
+    $("btnLigar").disabled = true;
+    try {
+      await ligar();
+      guardar("gh_chave", cfg.chave); guardar("gh_dono", cfg.dono); guardar("gh_repo", cfg.repo);
+      aviso("Ligado ✓");
+    } catch (e) {
+      const texto = e.status === 401 ? "A chave não é válida. Confirma que a copiaste toda."
+        : e.status === 404 ? "Não encontrei o repositório. Confirma o nome e que a chave tem acesso a ele."
+        : e.message;
+      mostrarLigar({ texto, repo: e.status === 404 });
+    } finally { $("btnLigar").disabled = false; }
+  });
+
+  $("btnSair").addEventListener("click", () => {
+    if (!confirm("Desligar este dispositivo? Vais precisar da chave para voltar a entrar.")) return;
+    guardar("gh_chave", null);
+    cfg.chave = ""; $("chave").value = "";
+    mostrarLigar();
+  });
+
+  /* ---------- Músicas existentes ---------- */
+  let existentes = [];   // {caminho, sha, tamanho, capa?, titulo, artista, capaUrl}
+  let nomes = {};        // musicas/nomes.json  { "ficheiro.mp3": {titulo, artista} }
+
+  async function carregarExistentes() {
+    const ul = $("existentes");
+    ul.innerHTML = '<li class="vazio-mini">A carregar…</li>';
+    try {
+      const [arvore, site] = await Promise.all([
+        gh(`${rp()}/git/trees/${cfg.ramo}?recursive=1`),
+        fetch("musicas.json?v=" + Date.now(), { cache: "no-store" }).then((r) => r.ok ? r.json() : { musicas: [] }).catch(() => ({ musicas: [] })),
+      ]);
+      const ficheiros = arvore.tree.filter((t) => t.type === "blob" && t.path.startsWith("musicas/"));
+      const nomesF = ficheiros.find((t) => t.path === "musicas/nomes.json");
+      nomes = {};
+      if (nomesF) {
+        try {
+          const b = await gh(`${rp()}/git/blobs/${nomesF.sha}`);
+          nomes = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b.content.replace(/\n/g, "")), (c) => c.charCodeAt(0))));
+        } catch {}
+      }
+      const doSite = {};
+      (site.musicas || []).forEach((m) => { doSite[decodeURIComponent(m.ficheiro)] = m; });
+      const imagens = new Map(ficheiros.filter((t) => IMAGEM.test(t.path)).map((t) => [semExt(t.path), t]));
+
+      existentes = ficheiros.filter((t) => AUDIO.test(t.path)).map((t) => {
+        const m = doSite[t.path] || {};
+        const rel = t.path.slice("musicas/".length);
+        const n = nomes[rel] || {};
+        const nomeF = semExt(rel.split("/").pop());
+        const [a, ti] = nomeF.includes(" - ") ? nomeF.split(/ - (.+)/) : ["", nomeF];
+        return {
+          caminho: t.path, rel, sha: t.sha, tamanho: t.size,
+          capa: imagens.get(semExt(t.path)),
+          titulo: n.titulo || m.titulo || ti,
+          artista: n.artista || m.artista || a,
+          capaUrl: m.capa || "",
+          publicada: !!doSite[t.path],
+          adicionada: m.adicionada || Infinity,
+        };
+      }).sort((x, y) => y.adicionada - x.adicionada);
+
+      desenharExistentes();
+    } catch (e) {
+      ul.innerHTML = `<li class="erro">Não consegui carregar a lista: ${esc(e.message)}</li>`;
+    }
+  }
+
+  function capaFalsa(el, titulo) {
+    let h = 0; for (const c of titulo) h = (h * 31 + c.charCodeAt(0)) >>> 0; h %= 360;
+    el.style.backgroundImage = `linear-gradient(135deg, hsl(${h} 70% 55%), hsl(${(h + 50) % 360} 65% 35%))`;
+    el.textContent = titulo.replace(/[^\p{L}\p{N} ]/gu, "").trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join("").toUpperCase() || "♪";
+  }
+
+  function desenharExistentes() {
+    const ul = $("existentes");
+    $("numExist").textContent = existentes.length ? "· " + existentes.length : "";
+    if (!existentes.length) { ul.innerHTML = '<li class="vazio-mini">Ainda não há músicas. Adiciona a primeira lá em cima.</li>'; return; }
+    ul.innerHTML = "";
+    existentes.forEach((m, i) => {
+      const li = document.createElement("li");
+      li.className = "exist";
+      li.innerHTML = `
+        <div class="capa"></div>
+        <div class="exist-texto">
+          <strong>${esc(m.titulo)}</strong>
+          <span>${esc([m.artista, mb(m.tamanho), m.publicada ? "" : "a publicar…"].filter(Boolean).join(" · "))}</span>
+        </div>
+        <div>
+          <button class="icone" data-acao="editar" data-i="${i}" title="Mudar nome" aria-label="Mudar nome">
+            <svg viewBox="0 0 24 24"><path d="M4 17.2V20h2.8l8.3-8.3-2.8-2.8L4 17.2zM19.7 7.1a1 1 0 0 0 0-1.4l-1.4-1.4a1 1 0 0 0-1.4 0l-1.3 1.3 2.8 2.8 1.3-1.3z"/></svg>
+          </button>
+          <button class="icone perigo" data-acao="apagar" data-i="${i}" title="Apagar" aria-label="Apagar">
+            <svg viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9z"/></svg>
+          </button>
+        </div>`;
+      const c = li.querySelector(".capa");
+      if (m.capaUrl) c.style.backgroundImage = `url("${m.capaUrl}")`; else capaFalsa(c, m.titulo);
+      ul.appendChild(li);
+    });
+  }
+
+  $("existentes").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-acao]");
+    if (!b) return;
+    const m = existentes[+b.dataset.i];
+    const li = b.closest(".exist");
+
+    if (b.dataset.acao === "editar") {
+      if (li.querySelector(".exist-edita")) return;
+      const f = document.createElement("div");
+      f.className = "exist-edita";
+      f.innerHTML = `
+        <input class="entrada" placeholder="Título" value="${esc(m.titulo)}">
+        <input class="entrada" placeholder="Artista" value="${esc(m.artista)}">
+        <button class="btn btn-principal" type="button">Guardar</button>`;
+      li.appendChild(f);
+      f.querySelector("input").focus();
+      f.querySelector("button").addEventListener("click", async (ev) => {
+        const [t, a] = f.querySelectorAll("input");
+        ev.target.disabled = true;
+        try {
+          nomes[m.rel] = { titulo: t.value.trim(), artista: a.value.trim() };
+          await gravar([{ caminho: "musicas/nomes.json", texto: JSON.stringify(nomes, null, 2) + "\n" }], `Mudar nome: ${t.value.trim()}`);
+          m.titulo = t.value.trim() || m.titulo; m.artista = a.value.trim();
+          desenharExistentes();
+        } catch (err) { aviso("Erro: " + err.message); ev.target.disabled = false; }
+      });
+    }
+
+    if (b.dataset.acao === "apagar") {
+      if (!confirm(`Apagar "${m.titulo}" do site?`)) return;
+      b.disabled = true;
+      try {
+        const alt = [{ caminho: m.caminho, apagar: true }];
+        if (m.capa) alt.push({ caminho: m.capa.path, apagar: true });
+        if (nomes[m.rel]) { delete nomes[m.rel]; alt.push({ caminho: "musicas/nomes.json", texto: JSON.stringify(nomes, null, 2) + "\n" }); }
+        await gravar(alt, `Apagar música: ${m.titulo}`);
+        existentes = existentes.filter((x) => x !== m);
+        desenharExistentes();
+      } catch (err) { aviso("Erro: " + err.message); b.disabled = false; }
+    }
+  });
+
+  /* ---------- Adicionar ---------- */
+  let pendentes = [];   // {ficheiro, capa?: File, titulo, artista, el}
+
+  function adicionarFicheiros(lista) {
+    const fs = [...lista];
+    const audios = fs.filter((f) => AUDIO.test(f.name) || f.type.startsWith("audio/"));
+    const imagens = fs.filter((f) => f.type.startsWith("image/") || IMAGEM.test(f.name));
+    let ignorados = fs.length - audios.length - imagens.length;
+
+    for (const f of audios) {
+      if (f.size > MAX_MB * 1048576) { aviso(`${f.name} é demasiado grande (máx. ${MAX_MB} MB)`); continue; }
+      if (pendentes.some((p) => p.ficheiro.name === f.name && p.ficheiro.size === f.size)) continue;
+      pendentes.push({ ficheiro: f, capa: null, titulo: "", artista: "" });
+    }
+    for (const img of imagens) {
+      const alvo = pendentes.find((p) => semExt(p.ficheiro.name).toLowerCase() === semExt(img.name).toLowerCase());
+      if (alvo) alvo.capa = img; else ignorados++;
+    }
+    if (ignorados) aviso(`${ignorados} ficheiro(s) ignorado(s): não são músicas ou não têm música com o mesmo nome`);
+    desenharPendentes();
+  }
+
+  function desenharPendentes() {
+    const ul = $("pendentes");
+    ul.innerHTML = "";
+    pendentes.forEach((p, i) => {
+      const nomeF = semExt(p.ficheiro.name);
+      const [a, t] = nomeF.includes(" - ") ? nomeF.split(/ - (.+)/) : ["", nomeF];
+      const li = document.createElement("li");
+      li.className = "pend";
+      li.innerHTML = `
+        <div class="capa${p.capa ? " tem" : ""}" title="Escolher capa"></div>
+        <div>
+          <div class="pend-nome">${esc(p.ficheiro.name)} <small>${mb(p.ficheiro.size)}</small></div>
+          <div class="linha2">
+            <input class="entrada" data-c="titulo" placeholder="Título (automático: ${esc(t.replace(/^\d+[\s.\-_]+/, ""))})" value="${esc(p.titulo)}">
+            <input class="entrada" data-c="artista" placeholder="Artista${a ? " (automático: " + esc(a) + ")" : " (opcional)"}" value="${esc(p.artista)}">
+          </div>
+          <div class="barra-envio"><i></i></div>
+        </div>
+        <button class="icone perigo" type="button" title="Tirar" aria-label="Tirar da lista">
+          <svg viewBox="0 0 24 24"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></svg>
+        </button>`;
+      const c = li.querySelector(".capa");
+      if (p.capa) c.style.backgroundImage = `url("${URL.createObjectURL(p.capa)}")`;
+      else capaFalsa(c, p.titulo || t);
+      c.addEventListener("click", () => { capaPara = p; $("ficheiroCapa").click(); });
+      li.querySelectorAll("input").forEach((inp) => inp.addEventListener("input", () => { p[inp.dataset.c] = inp.value; }));
+      li.querySelector("button").addEventListener("click", () => { pendentes.splice(i, 1); desenharPendentes(); });
+      p.el = li;
+      ul.appendChild(li);
+    });
+    $("acoesEnvio").hidden = !pendentes.length;
+    $("btnPublicar").textContent = pendentes.length === 1 ? "Publicar 1 música" : `Publicar ${pendentes.length} músicas`;
+  }
+
+  let capaPara = null;
+  $("ficheiroCapa").addEventListener("change", (e) => {
+    if (capaPara && e.target.files[0]) { capaPara.capa = e.target.files[0]; desenharPendentes(); }
+    e.target.value = "";
+  });
+
+  const zona = $("zona");
+  $("ficheiros").addEventListener("change", (e) => { adicionarFicheiros(e.target.files); e.target.value = ""; });
+  ["dragenter", "dragover"].forEach((ev) => zona.addEventListener(ev, (e) => { e.preventDefault(); zona.classList.add("sobre"); }));
+  ["dragleave", "drop"].forEach((ev) => zona.addEventListener(ev, (e) => { e.preventDefault(); zona.classList.remove("sobre"); }));
+  zona.addEventListener("drop", (e) => adicionarFicheiros(e.dataTransfer.files));
+  // largar em qualquer lado da página também funciona
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("drop", (e) => { e.preventDefault(); if (!$("gerir").hidden && !zona.contains(e.target)) adicionarFicheiros(e.dataTransfer.files); });
+
+  $("btnLimpar").addEventListener("click", () => { pendentes = []; desenharPendentes(); });
+
+  function caminhoLivre(nome, usados) {
+    const limpo = nome.replace(/[\\/:*?"<>|#%]+/g, " ").replace(/\s+/g, " ").trim();
+    let caminho = "musicas/" + limpo, n = 2;
+    const ext = limpo.match(/\.[^.]+$/)?.[0] || "", base = limpo.slice(0, limpo.length - ext.length);
+    while (usados.has(caminho.toLowerCase())) caminho = `musicas/${base} (${n++})${ext}`;
+    usados.add(caminho.toLowerCase());
+    return caminho;
+  }
+
+  $("btnPublicar").addEventListener("click", async () => {
+    if (!pendentes.length) return;
+    const btn = $("btnPublicar");
+    btn.disabled = true; $("btnLimpar").disabled = true; zona.style.pointerEvents = "none";
+    $("erroEnvio").hidden = true;
+    const usados = new Set(existentes.flatMap((m) => [m.caminho.toLowerCase(), m.capa?.path.toLowerCase()]).filter(Boolean));
+    const alteracoes = [];
+    let mudouNomes = false;
+    try {
+      for (let i = 0; i < pendentes.length; i++) {
+        const p = pendentes[i];
+        btn.textContent = `A enviar ${i + 1} de ${pendentes.length}…`;
+        p.el.classList.add("a-enviar");
+        const barra = p.el.querySelector(".barra-envio i");
+        const caminho = caminhoLivre(p.ficheiro.name, usados);
+        const sha = await enviarBlob(p.ficheiro, (f) => { barra.style.width = (p.capa ? f * 90 : f * 100) + "%"; });
+        alteracoes.push({ caminho, sha });
+        if (p.capa) {
+          const ext = (p.capa.name.match(/\.[^.]+$/)?.[0] || ".jpg").toLowerCase();
+          const caminhoCapa = semExt(caminho) + ext;
+          usados.add(caminhoCapa.toLowerCase());
+          alteracoes.push({ caminho: caminhoCapa, sha: await enviarBlob(p.capa, () => {}) });
+        }
+        barra.style.width = "100%";
+        if (p.titulo.trim() || p.artista.trim()) {
+          nomes[caminho.slice("musicas/".length)] = { titulo: p.titulo.trim(), artista: p.artista.trim() };
+          mudouNomes = true;
+        }
+      }
+      if (mudouNomes) alteracoes.push({ caminho: "musicas/nomes.json", texto: JSON.stringify(nomes, null, 2) + "\n" });
+      btn.textContent = "A guardar…";
+      const n = pendentes.length;
+      await gravar(alteracoes, n === 1 ? `Adicionar música: ${pendentes[0].titulo || pendentes[0].ficheiro.name}` : `Adicionar ${n} músicas`);
+      pendentes = [];
+      desenharPendentes();
+      aviso(n === 1 ? "Música enviada ✓" : `${n} músicas enviadas ✓`);
+      carregarExistentes();
+    } catch (e) {
+      $("erroEnvio").textContent = "Não foi possível enviar: " + e.message + ". Tenta outra vez.";
+      $("erroEnvio").hidden = false;
+      pendentes.forEach((p) => p.el?.classList.remove("a-enviar"));
+      desenharPendentes();
+    } finally {
+      btn.disabled = false; $("btnLimpar").disabled = false; zona.style.pointerEvents = "";
+    }
+  });
+
+  /* ---------- Arranque ---------- */
+  if (cfg.chave && cfg.dono && cfg.repo) {
+    ligar().catch((e) => mostrarLigar({ texto: e.status === 401 ? "A chave expirou ou foi revogada. Cria uma nova." : e.message }));
+  } else {
+    mostrarLigar();
+  }
+})();
+</script>
+</body>
+</html>

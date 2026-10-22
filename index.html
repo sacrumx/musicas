@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{TITULO}}</title>
+  <meta name="description" content="{{SUBTITULO}}">
+  <meta name="theme-color" content="#16120f">
+
+  <!-- Pré-visualização ao partilhar (WhatsApp, Instagram, iMessage…) -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{TITULO}}">
+  <meta property="og:description" content="{{SUBTITULO}}">
+  <meta property="og:image" content="{{IMAGEM}}">
+  <meta property="og:url" content="{{URL}}">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="capa-partilha.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="grao" aria-hidden="true"></div>
+
+  <header class="topo">
+    <div class="disco" aria-hidden="true"><span></span></div>
+    <div class="topo-texto">
+      <h1 id="titulo">{{TITULO}}</h1>
+      <p id="subtitulo">{{SUBTITULO}}</p>
+      <p class="contagem" id="contagem"></p>
+    </div>
+    <div class="topo-acoes">
+      <button class="btn btn-principal" id="tocarTudo" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+        Ouvir tudo
+      </button>
+      <button class="btn" id="partilharSite" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16a3 3 0 0 0-2.4 1.2l-6.7-3.4a3 3 0 0 0 0-1.6l6.7-3.4A3 3 0 1 0 15 7c0 .3 0 .5.1.8L8.4 11.2a3 3 0 1 0 0 3.6l6.7 3.4c-.1.3-.1.5-.1.8a3 3 0 1 0 3-3z"/></svg>
+        Partilhar
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div class="procura" id="procuraCaixa" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a6 6 0 1 0 3.6 10.8l4.3 4.3 1.4-1.4-4.3-4.3A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/></svg>
+      <input id="procura" type="search" placeholder="Procurar música ou artista" autocomplete="off">
+    </div>
+
+    <ol class="lista" id="lista" aria-label="Músicas"></ol>
+
+    <div class="vazio" id="vazio" hidden>
+      <div class="disco grande" aria-hidden="true"><span></span></div>
+      <h2>Ainda não há músicas aqui</h2>
+      <p>Põe ficheiros de áudio na pasta <code>musicas</code> do repositório e elas aparecem sozinhas.</p>
+    </div>
+  </main>
+
+  <footer class="rodape" id="rodape"></footer>
+
+  <!-- Leitor fixo em baixo -->
+  <section class="leitor" id="leitor" aria-label="Leitor" hidden>
+    <div class="leitor-progresso">
+      <input type="range" id="barra" min="0" max="1000" value="0" step="1" aria-label="Posição na música">
+    </div>
+    <div class="leitor-corpo">
+      <div class="leitor-info" id="leitorInfo">
+        <div class="capa pequena" id="leitorCapa"></div>
+        <div class="leitor-texto">
+          <strong id="leitorTitulo"></strong>
+          <span id="leitorArtista"></span>
+        </div>
+      </div>
+      <div class="leitor-controlos">
+        <button class="icone" id="aleatorio" type="button" aria-label="Ordem aleatória" aria-pressed="false" title="Ordem aleatória">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3l4 4-4 4V8h-2.6l-2.9 4 2.9 4H17v-3l4 4-4 4v-3h-3.6l-3.4-4.7L6.6 18H3v-2h2.6l2.9-4-2.9-4H3V6h3.6L10 10.7 13.4 6H17V3z"/></svg>
+        </button>
+        <button class="icone" id="anterior" type="button" aria-label="Anterior">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
+        </button>
+        <button class="icone tocar" id="tocar" type="button" aria-label="Tocar">
+          <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+          <svg class="i-pausa" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+        </button>
+        <button class="icone" id="seguinte" type="button" aria-label="Seguinte">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>
+        </button>
+        <button class="icone" id="partilharAtual" type="button" aria-label="Partilhar esta música" title="Partilhar esta música">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16a3 3 0 0 0-2.4 1.2l-6.7-3.4a3 3 0 0 0 0-1.6l6.7-3.4A3 3 0 1 0 15 7c0 .3 0 .5.1.8L8.4 11.2a3 3 0 1 0 0 3.6l6.7 3.4c-.1.3-.1.5-.1.8a3 3 0 1 0 3-3z"/></svg>
+        </button>
+      </div>
+      <div class="leitor-tempo"><span id="tempoAtual">0:00</span><span>/</span><span id="tempoTotal">0:00</span></div>
+    </div>
+  </section>
+
+  <div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+
+  <audio id="audio" preload="metadata"></audio>
+  <script src="app.js"></script>
+</body>
+</html>

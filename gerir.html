@@ -101,6 +101,12 @@
     .exist-edita .entrada { margin: 0; padding: 8px 10px; }
     .icone.perigo:hover { color: #e5484d; }
     .vazio-mini { color: var(--texto-3); margin: 0; }
+    .pl-sub { font-size: 14px; font-weight: 700; color: var(--texto-2); text-transform: uppercase; letter-spacing: .05em; margin: 22px 0 6px; }
+    .pl-fora { max-height: 340px; overflow-y: auto; margin-top: 8px; }
+    .exist .botoes { display: flex; }
+    .icone[disabled] { opacity: .3; pointer-events: none; }
+    .btn.perigo { margin-left: auto; }
+    .btn.perigo:hover { border-color: #e5484d; color: #e5484d; }
     .rodape-gerir { text-align: center; margin-top: 26px; }
     .rodape-gerir button { background: none; border: 0; color: var(--texto-3); cursor: pointer; text-decoration: underline; font-size: 14px; }
 
@@ -169,6 +175,29 @@
       <section class="cartao">
         <h2>No site <span id="numExist" style="color:var(--texto-3);font-weight:500"></span></h2>
         <ul class="existentes" id="existentes"></ul>
+      </section>
+
+      <section class="cartao">
+        <h2>Playlists <span id="numPl" style="color:var(--texto-3);font-weight:500"></span></h2>
+        <p>Junta músicas em playlists. Aparecem no site por cima da lista e cada uma tem o seu link para partilhar.</p>
+        <div id="listaPl">
+          <ul class="existentes" id="playlists"></ul>
+          <div class="acoes"><button class="btn" id="btnNovaPl" type="button">+ Nova playlist</button></div>
+        </div>
+        <div id="editorPl" hidden>
+          <label class="campo">Nome<input class="entrada" id="plNome" autocomplete="off" placeholder="Ex.: Para a estrada"></label>
+          <label class="campo">Descrição (opcional)<input class="entrada" id="plDesc" autocomplete="off"></label>
+          <h3 class="pl-sub">Na playlist <span id="plNum"></span></h3>
+          <ul class="existentes" id="plDentro"></ul>
+          <h3 class="pl-sub">Adicionar músicas</h3>
+          <input class="entrada" id="plProcura" type="search" placeholder="Procurar…" autocomplete="off">
+          <ul class="existentes pl-fora" id="plFora"></ul>
+          <div class="acoes">
+            <button class="btn btn-principal" id="btnGuardarPl" type="button">Guardar playlist</button>
+            <button class="btn" id="btnCancelarPl" type="button">Cancelar</button>
+            <button class="btn perigo" id="btnApagarPl" type="button">Apagar playlist</button>
+          </div>
+        </div>
       </section>
 
       <div class="rodape-gerir"><button id="btnSair" type="button">Desligar este dispositivo</button></div>
@@ -380,6 +409,13 @@
   /* ---------- Músicas existentes ---------- */
   let existentes = [];   // {caminho, sha, tamanho, capa?, titulo, artista, capaUrl}
   let nomes = {};        // musicas/nomes.json  { "ficheiro.mp3": {titulo, artista} }
+  let playlists = [];    // musicas/playlists.json  [{id, nome, descricao, musicas: ["ficheiro.mp3", …]}]
+
+  const lerJson = async (t) => {
+    const b = await gh(`${rp()}/git/blobs/${t.sha}`);
+    return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b.content.replace(/\n/g, "")), (c) => c.charCodeAt(0))));
+  };
+  const textoPlaylists = (pls) => JSON.stringify(pls, null, 2) + "\n";
 
   async function carregarExistentes() {
     const ul = $("existentes");
@@ -391,13 +427,11 @@
       ]);
       const ficheiros = arvore.tree.filter((t) => t.type === "blob" && t.path.startsWith("musicas/"));
       const nomesF = ficheiros.find((t) => t.path === "musicas/nomes.json");
+      const plF = ficheiros.find((t) => t.path === "musicas/playlists.json");
       nomes = {};
-      if (nomesF) {
-        try {
-          const b = await gh(`${rp()}/git/blobs/${nomesF.sha}`);
-          nomes = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b.content.replace(/\n/g, "")), (c) => c.charCodeAt(0))));
-        } catch {}
-      }
+      playlists = [];
+      if (nomesF) { try { nomes = await lerJson(nomesF); } catch {} }
+      if (plF) { try { const l = await lerJson(plF); if (Array.isArray(l)) playlists = l; } catch {} }
       const doSite = {};
       (site.musicas || []).forEach((m) => { doSite[decodeURIComponent(m.ficheiro)] = m; });
       const imagens = new Map(ficheiros.filter((t) => IMAGEM.test(t.path)).map((t) => [semExt(t.path), t]));
@@ -420,6 +454,7 @@
       }).sort((x, y) => y.adicionada - x.adicionada);
 
       desenharExistentes();
+      if ($("editorPl").hidden) desenharPlaylists();
     } catch (e) {
       ul.innerHTML = `<li class="erro">Não consegui carregar a lista: ${esc(e.message)}</li>`;
     }
@@ -494,11 +529,166 @@
         const alt = [{ caminho: m.caminho, apagar: true }];
         if (m.capa) alt.push({ caminho: m.capa.path, apagar: true });
         if (nomes[m.rel]) { delete nomes[m.rel]; alt.push({ caminho: "musicas/nomes.json", texto: JSON.stringify(nomes, null, 2) + "\n" }); }
+        const semEsta = playlists.map((pl) => ({ ...pl, musicas: (pl.musicas || []).filter((r) => r !== m.rel) }));
+        if (semEsta.some((pl, j) => pl.musicas.length !== (playlists[j].musicas || []).length)) {
+          alt.push({ caminho: "musicas/playlists.json", texto: textoPlaylists(semEsta) });
+        }
         await gravar(alt, `Apagar música: ${m.titulo}`);
         existentes = existentes.filter((x) => x !== m);
+        playlists = semEsta;
         desenharExistentes();
+        if ($("editorPl").hidden) desenharPlaylists();
       } catch (err) { aviso("Erro: " + err.message); b.disabled = false; }
     }
+  });
+
+  /* ---------- Playlists ---------- */
+  let editando = null;   // {orig, musicas: [rel]}
+
+  const porRel = (rel) => existentes.find((m) => m.rel === rel);
+  const pintar = (el, m) => { if (m?.capaUrl) el.style.backgroundImage = `url("${m.capaUrl}")`; else capaFalsa(el, m?.titulo || "♪"); };
+  const slugPl = (t) => t.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase() || "playlist";
+  const ICONE_EDITAR = '<svg viewBox="0 0 24 24"><path d="M4 17.2V20h2.8l8.3-8.3-2.8-2.8L4 17.2zM19.7 7.1a1 1 0 0 0 0-1.4l-1.4-1.4a1 1 0 0 0-1.4 0l-1.3 1.3 2.8 2.8 1.3-1.3z"/></svg>';
+
+  function desenharPlaylists() {
+    const ul = $("playlists");
+    $("numPl").textContent = playlists.length ? "· " + playlists.length : "";
+    if (!playlists.length) { ul.innerHTML = '<li class="vazio-mini">Ainda não há playlists.</li>'; return; }
+    ul.innerHTML = "";
+    playlists.forEach((pl, i) => {
+      const faixas = (pl.musicas || []).filter(porRel);
+      const li = document.createElement("li");
+      li.className = "exist";
+      li.innerHTML = `
+        <div class="capa"></div>
+        <div class="exist-texto">
+          <strong>${esc(pl.nome)}</strong>
+          <span>${esc([`${faixas.length} ${faixas.length === 1 ? "música" : "músicas"}`, pl.descricao].filter(Boolean).join(" · "))}</span>
+        </div>
+        <div class="botoes">
+          <a class="icone" href="./?p=${encodeURIComponent(pl.id)}" target="_blank" rel="noopener" title="Ver no site" aria-label="Ver no site">
+            <svg viewBox="0 0 24 24"><path d="M14 4h6v6h-2V7.4l-7.3 7.3-1.4-1.4L16.6 6H14V4zM5 6h6v2H6v10h10v-5h2v7H4V6h1z"/></svg>
+          </a>
+          <button class="icone" data-pl="${i}" type="button" title="Editar" aria-label="Editar ${esc(pl.nome)}">${ICONE_EDITAR}</button>
+        </div>`;
+      pintar(li.querySelector(".capa"), porRel(faixas[0]));
+      ul.appendChild(li);
+    });
+  }
+
+  function abrirEditor(pl) {
+    editando = { orig: pl, musicas: pl ? (pl.musicas || []).filter(porRel) : [] };
+    $("plNome").value = pl?.nome || "";
+    $("plDesc").value = pl?.descricao || "";
+    $("plProcura").value = "";
+    $("btnApagarPl").hidden = !pl;
+    $("listaPl").hidden = true;
+    $("editorPl").hidden = false;
+    desenharEditor();
+    $("plNome").focus();
+  }
+
+  function fecharEditor() {
+    editando = null;
+    $("editorPl").hidden = true;
+    $("listaPl").hidden = false;
+    desenharPlaylists();
+  }
+
+  function linhaMusica(m, botoes) {
+    const li = document.createElement("li");
+    li.className = "exist";
+    li.innerHTML = `
+      <div class="capa"></div>
+      <div class="exist-texto"><strong>${esc(m.titulo)}</strong><span>${esc(m.artista)}</span></div>
+      <div class="botoes">${botoes}</div>`;
+    pintar(li.querySelector(".capa"), m);
+    return li;
+  }
+
+  function desenharEditor() {
+    const dentro = $("plDentro"), fora = $("plFora");
+    const n = editando.musicas.length;
+    $("plNum").textContent = n ? "· " + n : "";
+    dentro.innerHTML = n ? "" : '<li class="vazio-mini">Ainda vazia. Escolhe músicas em baixo.</li>';
+    editando.musicas.forEach((rel, i) => {
+      dentro.appendChild(linhaMusica(porRel(rel), `
+        <button class="icone" data-acao="cima" data-i="${i}" type="button" title="Subir" aria-label="Subir"${i ? "" : " disabled"}>
+          <svg viewBox="0 0 24 24"><path d="M12 5l7 7-1.4 1.4-4.6-4.6V19h-2V8.8l-4.6 4.6L5 12z"/></svg></button>
+        <button class="icone" data-acao="baixo" data-i="${i}" type="button" title="Descer" aria-label="Descer"${i < n - 1 ? "" : " disabled"}>
+          <svg viewBox="0 0 24 24"><path d="M12 19l-7-7 1.4-1.4 4.6 4.6V5h2v10.2l4.6-4.6L19 12z"/></svg></button>
+        <button class="icone perigo" data-acao="tirar" data-i="${i}" type="button" title="Tirar da playlist" aria-label="Tirar da playlist">
+          <svg viewBox="0 0 24 24"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></svg></button>`));
+    });
+
+    const t = $("plProcura").value.trim().toLowerCase();
+    const resto = existentes.filter((m) => !editando.musicas.includes(m.rel) &&
+      (!t || (m.titulo + " " + m.artista).toLowerCase().includes(t)));
+    fora.innerHTML = resto.length ? "" : `<li class="vazio-mini">${existentes.length === n ? "Já estão todas as músicas." : "Nenhuma música encontrada."}</li>`;
+    resto.forEach((m) => {
+      fora.appendChild(linhaMusica(m, `
+        <button class="icone" data-rel="${esc(m.rel)}" type="button" title="Adicionar" aria-label="Adicionar ${esc(m.titulo)}">
+          <svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></button>`));
+    });
+  }
+
+  $("btnNovaPl").addEventListener("click", () => abrirEditor(null));
+  $("btnCancelarPl").addEventListener("click", fecharEditor);
+  $("plProcura").addEventListener("input", desenharEditor);
+  $("playlists").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pl]");
+    if (b) abrirEditor(playlists[+b.dataset.pl]);
+  });
+  $("plDentro").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-acao]");
+    if (!b) return;
+    const l = editando.musicas, i = +b.dataset.i;
+    if (b.dataset.acao === "tirar") l.splice(i, 1);
+    const j = b.dataset.acao === "cima" ? i - 1 : b.dataset.acao === "baixo" ? i + 1 : -1;
+    if (j >= 0 && j < l.length) [l[i], l[j]] = [l[j], l[i]];
+    desenharEditor();
+  });
+  $("plFora").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-rel]");
+    if (!b) return;
+    editando.musicas.push(b.dataset.rel);
+    desenharEditor();
+  });
+
+  $("btnGuardarPl").addEventListener("click", async (e) => {
+    const nome = $("plNome").value.trim();
+    if (!nome) { aviso("Dá um nome à playlist"); $("plNome").focus(); return; }
+    const { orig } = editando;
+    let id = orig?.id;
+    if (!id) {
+      const usados = new Set(playlists.map((pl) => pl.id));
+      const base = slugPl(nome);
+      let n = 2; id = base;
+      while (usados.has(id)) id = `${base}-${n++}`;
+    }
+    const nova = { id, nome, descricao: $("plDesc").value.trim(), musicas: [...editando.musicas] };
+    const lista = orig ? playlists.map((pl) => pl === orig ? nova : pl) : [...playlists, nova];
+    e.target.disabled = true;
+    try {
+      await gravar([{ caminho: "musicas/playlists.json", texto: textoPlaylists(lista) }], `Playlist: ${nome}`);
+      playlists = lista;
+      fecharEditor();
+      aviso("Playlist guardada ✓");
+    } catch (err) { aviso("Erro: " + err.message); }
+    finally { e.target.disabled = false; }
+  });
+
+  $("btnApagarPl").addEventListener("click", async (e) => {
+    const { orig } = editando;
+    if (!orig || !confirm(`Apagar a playlist "${orig.nome}"? As músicas continuam no site.`)) return;
+    const lista = playlists.filter((pl) => pl !== orig);
+    e.target.disabled = true;
+    try {
+      await gravar([{ caminho: "musicas/playlists.json", texto: textoPlaylists(lista) }], `Apagar playlist: ${orig.nome}`);
+      playlists = lista;
+      fecharEditor();
+    } catch (err) { aviso("Erro: " + err.message); }
+    finally { e.target.disabled = false; }
   });
 
   /* ---------- Adicionar ---------- */

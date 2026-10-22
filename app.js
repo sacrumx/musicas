@@ -6,6 +6,10 @@
   const lista = $("lista");
 
   let musicas = [];      // todas as músicas, pela ordem do site
+  let playlists = [];    // [{id, nome, descricao, musicas: [ids]}]
+  let playlist = null;   // playlist que está a ser vista (null = todas as músicas)
+  let vista = [];        // índices em `musicas` que estão na lista
+  let ordem = [];        // índices a partir dos quais a fila foi feita
   let fila = [];         // ordem de reprodução (pode estar baralhada)
   let atual = -1;        // índice em `musicas`
   let aleatorio = false;
@@ -60,6 +64,15 @@
   };
 
   const linkMusica = (m) => m.partilha || base + "?m=" + encodeURIComponent(m.id);
+  const linkPlaylist = (pl) => pl.partilha || base + "?p=" + encodeURIComponent(pl.id);
+
+  function atualizarUrl() {
+    const q = new URLSearchParams();
+    if (playlist) q.set("p", playlist.id);
+    if (atual >= 0) q.set("m", musicas[atual].id);
+    const t = q.toString();
+    history.replaceState(null, "", t ? "?" + t : location.pathname);
+  }
 
   async function partilhar({ title, text, url }) {
     if (navigator.share) {
@@ -103,40 +116,76 @@
       return;
     }
 
-    const total = musicas.reduce((a, m) => a + (m.duracao || 0), 0);
-    $("contagem").textContent =
-      `${musicas.length} ${musicas.length === 1 ? "música" : "músicas"}` +
-      (total ? ` · ${Math.round(total / 60)} min` : "");
+    const indice = new Map(musicas.map((m, i) => [m.id, i]));
+    playlists = (dados.playlists || []).map((pl) => ({
+      ...pl,
+      faixas: (pl.musicas || []).map((id) => indice.get(id)).filter((i) => i !== undefined),
+    }));
 
     if (musicas.length > 8) $("procuraCaixa").hidden = false;
-    desenharLista();
-    refazerFila();
+    desenharPlaylists();
 
-    // Link direto para uma música (?m=id ou #id)
-    const q = new URLSearchParams(location.search).get("m") ||
-      decodeURIComponent(location.hash.slice(1));
+    // Links diretos: ?p=playlist e/ou ?m=música (ou #música)
+    const params = new URLSearchParams(location.search);
+    const pq = params.get("p");
+    mostrarPlaylist(playlists.find((pl) => pl.id === pq) || null);
+    refazerFila(vista);
+
+    const q = params.get("m") || decodeURIComponent(location.hash.slice(1));
     const i = q ? musicas.findIndex((m) => m.id === q) : -1;
     if (i >= 0) {
       escolher(i, false);
-      const li = lista.children[i];
-      li.classList.add("destacada");
-      setTimeout(() => li.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+      const li = lista.querySelector(`[data-i="${i}"]`);
+      if (li) {
+        li.classList.add("destacada");
+        setTimeout(() => li.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+      }
       aviso("Carrega no ▶ para ouvir");
     }
   }
 
+  function desenharPlaylists() {
+    const nav = $("playlists");
+    if (!playlists.length) return;
+    nav.innerHTML = `<button class="chip" type="button" data-p="">Todas</button>` +
+      playlists.map((pl) =>
+        `<button class="chip" type="button" data-p="${esc(pl.id)}">${esc(pl.nome)}<small>${pl.faixas.length}</small></button>`
+      ).join("");
+    nav.hidden = false;
+  }
+
+  function mostrarPlaylist(pl) {
+    playlist = pl;
+    vista = pl ? pl.faixas : musicas.map((_, i) => i);
+    $("playlists").querySelectorAll(".chip").forEach((b) =>
+      b.setAttribute("aria-pressed", b.dataset.p === (pl ? pl.id : "")));
+    $("playlistDesc").textContent = pl?.descricao || "";
+    $("playlistDesc").hidden = !pl?.descricao;
+
+    const total = vista.reduce((a, i) => a + (musicas[i].duracao || 0), 0);
+    $("contagem").textContent = (pl ? pl.nome + " · " : "") +
+      `${vista.length} ${vista.length === 1 ? "música" : "músicas"}` +
+      (total ? ` · ${Math.round(total / 60)} min` : "");
+    $("tocarTudo").hidden = !vista.length;
+
+    desenharLista();
+    filtrar();
+    atualizarUrl();
+  }
+
   function desenharLista() {
     const recente = Date.now() / 1000 - 7 * 24 * 3600;
-    lista.innerHTML = "";
-    musicas.forEach((m, i) => {
+    lista.innerHTML = vista.length ? "" : '<li class="lista-vazia">Esta playlist ainda não tem músicas.</li>';
+    vista.forEach((i, pos) => {
+      const m = musicas[i];
       const li = document.createElement("li");
-      li.className = "faixa";
+      li.className = "faixa" + (i === atual ? " atual" : "");
       li.tabIndex = 0;
       li.dataset.i = i;
       li.dataset.procura = (m.titulo + " " + m.artista + " " + (m.album || "")).toLowerCase();
       const sub = [m.artista, m.album].filter(Boolean).join(" · ");
       li.innerHTML = `
-        <div class="faixa-num"><span>${i + 1}</span><div class="ondas"><i></i><i></i><i></i></div></div>
+        <div class="faixa-num"><span>${pos + 1}</span><div class="ondas"><i></i><i></i><i></i></div></div>
         <div class="capa"></div>
         <div class="faixa-texto">
           <span class="faixa-titulo">${esc(m.titulo)}${m.adicionada > recente ? '<span class="faixa-novo">Nova</span>' : ""}</span>
@@ -158,15 +207,16 @@
 
   /* ---------------- Reprodução ---------------- */
 
-  function refazerFila() {
-    fila = musicas.map((_, i) => i);
+  function refazerFila(nova) {
+    if (nova) ordem = nova;
+    fila = [...ordem];
     if (aleatorio) {
       for (let i = fila.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [fila[i], fila[j]] = [fila[j], fila[i]];
       }
       // a música atual passa para o início para não se repetir
-      if (atual >= 0) fila = [atual, ...fila.filter((x) => x !== atual)];
+      if (fila.includes(atual)) fila = [atual, ...fila.filter((x) => x !== atual)];
     }
   }
 
@@ -185,7 +235,7 @@
       [...lista.children].forEach((li) => li.classList.toggle("atual", +li.dataset.i === i));
       $("leitor").hidden = false;
       sessaoMedia(m);
-      history.replaceState(null, "", "?m=" + encodeURIComponent(m.id));
+      atualizarUrl();
     }
     if (tocar) audio.play().catch(() => {});
   }
@@ -200,7 +250,7 @@
   }
 
   function alternar() {
-    if (atual < 0) { escolher(fila[0]); return; }
+    if (atual < 0) { refazerFila(vista); escolher(fila[0]); return; }
     audio.paused ? audio.play().catch(() => {}) : audio.pause();
   }
 
@@ -264,6 +314,7 @@
       return;
     }
     if (e.target.closest(".baixar")) return;
+    if (ordem !== vista) refazerFila(vista);
     i === atual ? alternar() : escolher(i);
   });
   lista.addEventListener("keydown", (e) => {
@@ -277,7 +328,7 @@
   $("seguinte").addEventListener("click", () => passo(1));
   $("anterior").addEventListener("click", () => passo(-1));
   $("tocarTudo").addEventListener("click", () => {
-    refazerFila();
+    refazerFila(vista);
     escolher(fila[0]);
   });
   $("aleatorio").addEventListener("click", (e) => {
@@ -286,17 +337,24 @@
     refazerFila();
     aviso(aleatorio ? "Ordem aleatória ligada" : "Ordem aleatória desligada");
   });
-  $("partilharSite").addEventListener("click", () =>
-    partilhar({ title: $("titulo").textContent, text: "🎧 " + $("titulo").textContent, url: base }));
+  $("partilharSite").addEventListener("click", () => playlist
+    ? partilhar({ title: playlist.nome, text: "🎧 " + playlist.nome, url: linkPlaylist(playlist) })
+    : partilhar({ title: $("titulo").textContent, text: "🎧 " + $("titulo").textContent, url: base }));
   $("partilharAtual").addEventListener("click", () => {
     const m = musicas[atual];
     if (m) partilhar({ title: m.titulo, text: `🎵 ${m.titulo}${m.artista ? " — " + m.artista : ""}`, url: linkMusica(m) });
   });
 
-  $("procura").addEventListener("input", (e) => {
-    const t = e.target.value.trim().toLowerCase();
-    [...lista.children].forEach((li) => { li.hidden = t && !li.dataset.procura.includes(t); });
+  $("playlists").addEventListener("click", (e) => {
+    const b = e.target.closest(".chip");
+    if (b) mostrarPlaylist(playlists.find((pl) => pl.id === b.dataset.p) || null);
   });
+
+  function filtrar() {
+    const t = $("procura").value.trim().toLowerCase();
+    lista.querySelectorAll(".faixa").forEach((li) => { li.hidden = t && !li.dataset.procura.includes(t); });
+  }
+  $("procura").addEventListener("input", filtrar);
 
   document.addEventListener("keydown", (e) => {
     if (e.target.matches("input, textarea") && e.target.type !== "range") return;

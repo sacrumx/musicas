@@ -4,8 +4,9 @@ Gera o site a partir da pasta `musicas/`.
 
 - Lê título, artista, álbum, duração e capa de cada ficheiro de áudio.
 - Cria `musicas.json` com a lista (mais recentes primeiro).
-- Cria uma página de partilha por música (m/<id>/) para que, ao colar o link
-  no WhatsApp/Instagram/iMessage, apareça o nome e a capa daquela música.
+- Lê as playlists de `musicas/playlists.json` (criadas na página "Gerir músicas").
+- Cria uma página de partilha por música (m/<id>/) e por playlist (p/<id>/) para
+  que, ao colar o link no WhatsApp/Instagram/iMessage, apareça o nome e a capa.
 - Escreve tudo em `_site/`, que é o que o GitHub Pages publica.
 
 Corre sozinho no GitHub (ver .github/workflows/publicar.yml).
@@ -142,6 +143,28 @@ def url_do_site(cfg) -> str:
     return ""
 
 
+def pagina_partilha(pasta: Path, destino: str, tipo: str, emoji: str, titulo: str, desc: str,
+                    imagem: str, og_url: str, extra: str = ""):
+    """Página mínima com etiquetas Open Graph que reencaminha para o site."""
+    e = html.escape
+    pasta.mkdir(parents=True)
+    (pasta / "index.html").write_text(f"""<!doctype html>
+<html lang="pt"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{e(titulo)}</title>
+<meta property="og:type" content="{tipo}">
+<meta property="og:title" content="{emoji} {e(titulo)}">
+<meta property="og:description" content="{e(desc)}">
+{f'<meta property="og:image" content="{e(imagem)}">' if imagem else ''}
+{f'<meta property="og:url" content="{e(og_url)}">' if og_url else ''}
+{extra}<meta name="twitter:card" content="summary">
+<meta http-equiv="refresh" content="0; url={destino}">
+<link rel="canonical" href="{destino}">
+</head><body><script>location.replace({json.dumps(destino)})</script>
+<p><a href="{destino}">Ouvir “{e(titulo)}”</a></p></body></html>
+""", encoding="utf-8")
+
+
 def main():
     cfg = json.loads((RAIZ / "config.json").read_text(encoding="utf-8"))
     url = url_do_site(cfg)
@@ -159,7 +182,7 @@ def main():
         except Exception as e:
             print(f"  (nomes.json ignorado: {e})")
 
-    musicas, usados = [], set()
+    musicas, usados, por_ficheiro = [], set(), {}
     ficheiros = sorted(p for p in PASTA.rglob("*") if p.is_file() and p.suffix.lower() in EXTENSOES) if PASTA.exists() else []
     print(f"{len(ficheiros)} ficheiro(s) de áudio encontrados em musicas/")
 
@@ -187,6 +210,7 @@ def main():
         while ident in usados:
             ident, n = f"{original}-{n}", n + 1
         usados.add(ident)
+        por_ficheiro[rel.as_posix()] = ident
 
         # copia o áudio
         destino_audio = SAIDA / "musicas" / rel
@@ -216,36 +240,62 @@ def main():
     musicas.sort(key=lambda m: (-m["adicionada"], m["titulo"].lower()))
 
     # páginas de partilha por música (pré-visualização bonita nos links)
+    imagem_padrao = url + "capa-partilha.png" if url else ""
     for m in musicas:
-        pasta = SAIDA / "m" / m["id"]
-        pasta.mkdir(parents=True)
-        destino = f"../../?m={quote(m['id'])}"
-        imagem = (url + m["capa"]) if (url and m["capa"]) else (url + "capa-partilha.png" if url else "")
-        desc = " · ".join(x for x in (m["artista"], cfg.get("titulo", "")) if x)
-        e = html.escape
-        (pasta / "index.html").write_text(f"""<!doctype html>
-<html lang="pt"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{e(m['titulo'])}</title>
-<meta property="og:type" content="music.song">
-<meta property="og:title" content="🎵 {e(m['titulo'])}">
-<meta property="og:description" content="{e(desc)}">
-{f'<meta property="og:image" content="{e(imagem)}">' if imagem else ''}
-{f'<meta property="og:url" content="{e(url)}m/{e(m["id"])}/">' if url else ''}
-<meta property="og:audio" content="{e(url + m['ficheiro']) if url else ''}">
-<meta name="twitter:card" content="summary">
-<meta http-equiv="refresh" content="0; url={destino}">
-<link rel="canonical" href="{destino}">
-</head><body><script>location.replace({json.dumps(destino)})</script>
-<p><a href="{destino}">Ouvir “{e(m['titulo'])}”</a></p></body></html>
-""", encoding="utf-8")
+        audio_og = html.escape(url + m["ficheiro"]) if url else ""
+        pagina_partilha(
+            SAIDA / "m" / m["id"], f"../../?m={quote(m['id'])}", "music.song", "🎵", m["titulo"],
+            " · ".join(x for x in (m["artista"], cfg.get("titulo", "")) if x),
+            (url + m["capa"]) if (url and m["capa"]) else imagem_padrao,
+            f"{url}m/{m['id']}/" if url else "",
+            f'<meta property="og:audio" content="{audio_og}">\n',
+        )
         if url:
             m["partilha"] = f"{url}m/{m['id']}/"
+
+    # playlists: guardam os ficheiros (ex.: "Artista - Título.mp3") pela ordem escolhida
+    playlists = []
+    if (PASTA / "playlists.json").exists():
+        try:
+            lidas = json.loads((PASTA / "playlists.json").read_text(encoding="utf-8"))
+        except Exception as e:
+            print(f"  (playlists.json ignorado: {e})")
+            lidas = []
+        por_id = {m["id"]: m for m in musicas}
+        ids_pl = set()
+        for pl in lidas if isinstance(lidas, list) else []:
+            nome = str(pl.get("nome") or "").strip()
+            if not nome:
+                continue
+            ident = slug(str(pl.get("id") or nome))
+            n, original = 2, ident
+            while ident in ids_pl:
+                ident, n = f"{original}-{n}", n + 1
+            ids_pl.add(ident)
+            faixas = [por_ficheiro[f] for f in pl.get("musicas", []) if f in por_ficheiro]
+            capa = next((por_id[i]["capa"] for i in faixas if por_id[i]["capa"]), "")
+            playlists.append({
+                "id": ident,
+                "nome": nome,
+                "descricao": str(pl.get("descricao") or "").strip(),
+                "musicas": faixas,
+            })
+            pagina_partilha(
+                SAIDA / "p" / ident, f"../../?p={quote(ident)}", "music.playlist", "🎧", nome,
+                playlists[-1]["descricao"] or " · ".join(x for x in (
+                    f"{len(faixas)} {'música' if len(faixas) == 1 else 'músicas'}", cfg.get("titulo", "")) if x),
+                (url + capa) if (url and capa) else imagem_padrao,
+                f"{url}p/{ident}/" if url else "",
+            )
+            if url:
+                playlists[-1]["partilha"] = f"{url}p/{ident}/"
+            print(f"  ♫ playlist {nome} ({len(faixas)})")
 
     dados = {
         "config": {k: cfg.get(k, "") for k in ("titulo", "subtitulo", "autor")},
         "url": url,
         "musicas": musicas,
+        "playlists": playlists,
     }
     (SAIDA / "musicas.json").write_text(json.dumps(dados, ensure_ascii=False, indent=1), encoding="utf-8")
 

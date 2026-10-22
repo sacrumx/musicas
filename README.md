@@ -11,6 +11,7 @@ Tocam no telemóvel ou no computador, sem conta e sem app.
 - O link de cada música mostra o nome e a capa dessa música quando colado no WhatsApp, iMessage, etc.
 - Etiqueta **Nova** nas músicas adicionadas nos últimos 7 dias
 - Procura automática quando há mais de 8 músicas
+- Playlists, cada uma com o seu link para partilhar
 - Modo claro/escuro automático
 
 ---
@@ -52,6 +53,15 @@ Guarda esse endereço nos favoritos (também funciona no telemóvel). Lá podes:
 *Generate token*, copias e colas. A chave fica guardada só nesse browser e dura 1 ano.
 Mesmo que alguém descubra a página, sem a chave não consegue mexer em nada.
 
+## Playlists
+
+Na página de gestão há um cartão **Playlists**:
+- **+ Nova playlist** → dás um nome (e uma descrição, se quiseres), carregas no **+** das músicas que queres e ordenas com as setas
+- **Guardar playlist** e, passado 1–2 minutos, aparece no site por cima da lista
+- cada playlist tem o seu link (`…/musicas/p/nome-da-playlist/`): no site, escolhe a playlist e carrega em **Partilhar**
+
+As playlists ficam guardadas em `musicas/playlists.json`. Se apagares uma música, ela sai também das playlists.
+
 ## Adicionar músicas — diretamente no GitHub (alternativa)
 
 1. Abre a pasta **`musicas`** no repositório
@@ -73,7 +83,7 @@ Edita **`config.json`** no GitHub (ícone do lápis):
 
 ```json
 {
-  "titulo": "As nossas músicas",
+  "titulo": "Portal da Música",
   "subtitulo": "Carrega no play. Partilha com quem quiseres.",
   "autor": "Catarina",
   "url": ""

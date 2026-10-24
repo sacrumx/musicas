@@ -30,7 +30,7 @@ RAIZ = Path(__file__).resolve().parent.parent
 PASTA = RAIZ / "musicas"
 SAIDA = RAIZ / "_site"
 EXTENSOES = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac", ".webm"}
-FICHEIROS_SITE = ["index.html", "gerir.html", "style.css", "app.js", "icone.svg", "capa-partilha.png"]
+FICHEIROS_SITE = ["index.html", "gerir.html", "style.css", "app.js", "icone.svg", "icone.png", "capa-partilha.png"]
 
 
 def slug(texto: str) -> str:

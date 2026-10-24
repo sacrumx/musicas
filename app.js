@@ -8,6 +8,7 @@
   let musicas = [];      // todas as músicas, pela ordem do site
   let playlists = [];    // [{id, nome, descricao, musicas: [ids]}]
   let playlist = null;   // playlist que está a ser vista (null = todas as músicas)
+  let soPlaylist = false; // aberto pelo link de uma playlist: não mostra as outras
   let vista = [];        // índices em `musicas` que estão na lista
   let ordem = [];        // índices a partir dos quais a fila foi feita
   let fila = [];         // ordem de reprodução (pode estar baralhada)
@@ -122,17 +123,36 @@
       faixas: (pl.musicas || []).map((id) => indice.get(id)).filter((i) => i !== undefined),
     }));
 
-    if (musicas.length > 8) $("procuraCaixa").hidden = false;
-    desenharPlaylists();
-
     // Links diretos: ?p=playlist e/ou ?m=música (ou #música)
     const params = new URLSearchParams(location.search);
-    const pq = params.get("p");
-    mostrarPlaylist(playlists.find((pl) => pl.id === pq) || null);
-    refazerFila(vista);
-
+    const pl = playlists.find((p) => p.id === params.get("p")) || null;
     const q = params.get("m") || decodeURIComponent(location.hash.slice(1));
     const i = q ? musicas.findIndex((m) => m.id === q) : -1;
+
+    // o nome do site fica só como uma linha discreta no topo
+    const nomeSite = $("titulo").textContent.trim();
+    if ((pl || i >= 0) && nomeSite) {
+      $("marca").textContent = nomeSite;
+      $("marca").hidden = false;
+    }
+
+    // Link de uma música (QR da revista): só essa música, mais nada
+    if (!pl && i >= 0) return mostrarSo(i);
+
+    if (pl) {
+      // Link de uma playlist: só as músicas dessa playlist
+      soPlaylist = true;
+      document.body.classList.add("modo-playlist");
+      $("titulo").textContent = pl.nome;
+      $("subtitulo").textContent = pl.descricao || "";
+      document.title = pl.nome;
+    } else {
+      if (musicas.length > 8) $("procuraCaixa").hidden = false;
+      desenharPlaylists();
+    }
+    mostrarPlaylist(pl);
+    refazerFila(vista);
+
     if (i >= 0) {
       escolher(i, false);
       const li = lista.querySelector(`[data-i="${i}"]`);
@@ -142,6 +162,18 @@
       }
       aviso("Carrega no ▶ para ouvir");
     }
+  }
+
+  function mostrarSo(i) {
+    const m = musicas[i];
+    document.body.classList.add("modo-musica");
+    document.title = m.titulo + (m.artista ? " — " + m.artista : "");
+    $("soloTitulo").textContent = m.titulo;
+    $("soloArtista").textContent = [m.artista, m.album].filter(Boolean).join(" · ");
+    pintarCapa($("soloCapa"), m);
+    $("solo").hidden = false;
+    refazerFila([i]);
+    escolher(i, false);
   }
 
   function desenharPlaylists() {
@@ -163,7 +195,7 @@
     $("playlistDesc").hidden = !pl?.descricao;
 
     const total = vista.reduce((a, i) => a + (musicas[i].duracao || 0), 0);
-    $("contagem").textContent = (pl ? pl.nome + " · " : "") +
+    $("contagem").textContent = (pl && !soPlaylist ? pl.nome + " · " : "") +
       `${vista.length} ${vista.length === 1 ? "música" : "músicas"}` +
       (total ? ` · ${Math.round(total / 60)} min` : "");
     $("tocarTudo").hidden = !vista.length;
@@ -281,7 +313,7 @@
 
   audio.addEventListener("play", () => document.body.classList.add("a-tocar"));
   audio.addEventListener("pause", () => document.body.classList.remove("a-tocar"));
-  audio.addEventListener("ended", () => passo(1));
+  audio.addEventListener("ended", () => { if (fila.length > 1) passo(1); });
   audio.addEventListener("loadedmetadata", () => { $("tempoTotal").textContent = tempo(audio.duration); });
   audio.addEventListener("timeupdate", () => {
     if (aArrastar || !audio.duration) return;

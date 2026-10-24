@@ -62,6 +62,13 @@ Na página de gestão há um cartão **Playlists**:
 
 As playlists ficam guardadas em `musicas/playlists.json`. Se apagares uma música, ela sai também das playlists.
 
+## Links para a revista (QR codes)
+
+- **Uma música:** `…/musicas/m/artista-titulo/` abre uma página só com essa música (capa, título, play e partilhar) — é este o link a pôr em cada QR code. No site, o botão de partilhar de cada música copia este link.
+- **Uma playlist:** `…/musicas/p/nome-da-playlist/` abre uma página só com as músicas dessa playlist, sem as outras músicas nem as outras playlists.
+
+Nestas páginas o nome do site (`titulo` do `config.json`) aparece só como uma linha pequena no topo.
+
 ## Adicionar músicas — diretamente no GitHub (alternativa)
 
 1. Abre a pasta **`musicas`** no repositório

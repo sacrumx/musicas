@@ -25,6 +25,8 @@
 <body>
   <div class="grao" aria-hidden="true"></div>
 
+  <p class="marca" id="marca" hidden></p>
+
   <header class="topo">
     <div class="disco" aria-hidden="true"><span></span></div>
     <div class="topo-texto">
@@ -45,6 +47,13 @@
   </header>
 
   <main>
+    <!-- Link/QR de uma só música -->
+    <section class="solo" id="solo" hidden>
+      <div class="capa solo-capa" id="soloCapa"></div>
+      <h1 class="solo-titulo" id="soloTitulo"></h1>
+      <p class="solo-artista" id="soloArtista"></p>
+    </section>
+
     <nav class="playlists" id="playlists" aria-label="Playlists" hidden></nav>
     <p class="playlist-desc" id="playlistDesc" hidden></p>
 

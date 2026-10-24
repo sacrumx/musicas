@@ -35,7 +35,7 @@
   const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  // Capa de recurso: gradiente com cor derivada do nome + iniciais
+  // Capa de recurso: tom discreto derivado do nome + iniciais
   const corDe = (txt) => {
     let h = 0;
     for (const c of txt) h = (h * 31 + c.charCodeAt(0)) >>> 0;
@@ -48,8 +48,11 @@
       return;
     }
     const h = corDe(m.titulo + m.artista);
-    el.style.backgroundImage =
-      `linear-gradient(135deg, hsl(${h} 70% 55%), hsl(${(h + 50) % 360} 65% 35%))`;
+    const escuro = matchMedia("(prefers-color-scheme: dark)").matches;
+    el.style.backgroundImage = escuro
+      ? `linear-gradient(160deg, hsl(${h} 14% 24%), hsl(${h} 12% 17%))`
+      : `linear-gradient(160deg, hsl(${h} 22% 90%), hsl(${h} 18% 82%))`;
+    el.style.color = escuro ? `hsl(${h} 20% 72%)` : `hsl(${h} 22% 34%)`;
     const ini = m.titulo.replace(/[^\p{L}\p{N} ]/gu, "").trim().split(/\s+/)
       .slice(0, 2).map((p) => p[0]).join("").toUpperCase();
     el.textContent = ini || "♪";
@@ -172,6 +175,8 @@
     $("soloArtista").textContent = [m.artista, m.album].filter(Boolean).join(" · ");
     pintarCapa($("soloCapa"), m);
     $("solo").hidden = false;
+    // o leitor fica dentro da página, entre o título e o botão de partilhar
+    $("solo").insertBefore($("leitor"), $("soloPartilhar"));
     refazerFila([i]);
     escolher(i, false);
   }
@@ -206,7 +211,6 @@
   }
 
   function desenharLista() {
-    const recente = Date.now() / 1000 - 7 * 24 * 3600;
     lista.innerHTML = vista.length ? "" : '<li class="lista-vazia">Esta playlist ainda não tem músicas.</li>';
     vista.forEach((i, pos) => {
       const m = musicas[i];
@@ -220,7 +224,7 @@
         <div class="faixa-num"><span>${pos + 1}</span><div class="ondas"><i></i><i></i><i></i></div></div>
         <div class="capa"></div>
         <div class="faixa-texto">
-          <span class="faixa-titulo">${esc(m.titulo)}${m.adicionada > recente ? '<span class="faixa-novo">Nova</span>' : ""}</span>
+          <span class="faixa-titulo">${esc(m.titulo)}</span>
           ${sub ? `<span class="faixa-sub">${esc(sub)}</span>` : ""}
         </div>
         <div class="faixa-acoes">
@@ -372,6 +376,7 @@
   $("partilharSite").addEventListener("click", () => playlist
     ? partilhar({ title: playlist.nome, text: "🎧 " + playlist.nome, url: linkPlaylist(playlist) })
     : partilhar({ title: $("titulo").textContent, text: "🎧 " + $("titulo").textContent, url: base }));
+  $("soloPartilhar").addEventListener("click", () => $("partilharAtual").click());
   $("partilharAtual").addEventListener("click", () => {
     const m = musicas[atual];
     if (m) partilhar({ title: m.titulo, text: `🎵 ${m.titulo}${m.artista ? " — " + m.artista : ""}`, url: linkMusica(m) });

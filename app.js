@@ -41,21 +41,49 @@
     for (const c of txt) h = (h * 31 + c.charCodeAt(0)) >>> 0;
     return h % 360;
   };
+  const tonsCapa = (m) => {
+    const h = corDe(m.titulo + m.artista);
+    const escuro = matchMedia("(prefers-color-scheme: dark)").matches;
+    return {
+      de: escuro ? `hsl(${h} 14% 24%)` : `hsl(${h} 22% 90%)`,
+      ate: escuro ? `hsl(${h} 12% 17%)` : `hsl(${h} 18% 82%)`,
+      texto: escuro ? `hsl(${h} 20% 72%)` : `hsl(${h} 22% 34%)`,
+    };
+  };
+  const iniciais = (m) => m.titulo.replace(/[^\p{L}\p{N} ]/gu, "").trim().split(/\s+/)
+    .slice(0, 2).map((p) => p[0]).join("").toUpperCase() || "♪";
   const pintarCapa = (el, m) => {
     if (m.capa) {
       el.style.backgroundImage = `url("${m.capa}")`;
       el.textContent = "";
       return;
     }
-    const h = corDe(m.titulo + m.artista);
-    const escuro = matchMedia("(prefers-color-scheme: dark)").matches;
-    el.style.backgroundImage = escuro
-      ? `linear-gradient(160deg, hsl(${h} 14% 24%), hsl(${h} 12% 17%))`
-      : `linear-gradient(160deg, hsl(${h} 22% 90%), hsl(${h} 18% 82%))`;
-    el.style.color = escuro ? `hsl(${h} 20% 72%)` : `hsl(${h} 22% 34%)`;
-    const ini = m.titulo.replace(/[^\p{L}\p{N} ]/gu, "").trim().split(/\s+/)
-      .slice(0, 2).map((p) => p[0]).join("").toUpperCase();
-    el.textContent = ini || "♪";
+    const t = tonsCapa(m);
+    el.style.backgroundImage = `linear-gradient(160deg, ${t.de}, ${t.ate})`;
+    el.style.color = t.texto;
+    el.textContent = iniciais(m);
+  };
+
+  // A mesma capa de recurso, desenhada numa imagem para as notificações / ecrã bloqueado
+  const capaImagem = async (m) => {
+    try { await document.fonts.load('600 220px "Source Serif 4"'); } catch {}
+    const lado = 512, c = document.createElement("canvas");
+    c.width = c.height = lado;
+    const g = c.getContext("2d"), t = tonsCapa(m);
+    // gradiente a 160deg, como no CSS
+    const a = (160 - 90) * Math.PI / 180, r = lado / 2;
+    const dx = Math.cos(a) * r, dy = Math.sin(a) * r;
+    const grad = g.createLinearGradient(r - dx, r - dy, r + dx, r + dy);
+    grad.addColorStop(0, t.de);
+    grad.addColorStop(1, t.ate);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, lado, lado);
+    g.fillStyle = t.texto;
+    g.font = '600 220px "Source Serif 4", Georgia, serif';
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText(iniciais(m), r, r + 8);
+    return c.toDataURL("image/png");
   };
 
   let avisoTimer;
@@ -296,11 +324,13 @@
     b.style.setProperty("--p", (frac * 100).toFixed(2) + "%");
   }
 
-  function sessaoMedia(m) {
+  async function sessaoMedia(m) {
     if (!("mediaSession" in navigator)) return;
-    const capa = m.capa ? [{ src: new URL(m.capa, base).href, sizes: "512x512" }] : [];
+    const src = m.capa ? new URL(m.capa, base).href : await capaImagem(m);
+    if (m !== musicas[atual]) return; // entretanto mudou de música
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: m.titulo, artist: m.artista, album: m.album || $("titulo").textContent, artwork: capa,
+      title: m.titulo, artist: m.artista, album: m.album || $("titulo").textContent,
+      artwork: [{ src, sizes: "512x512", type: m.capa ? undefined : "image/png" }],
     });
   }
 

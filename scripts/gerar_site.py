@@ -12,6 +12,7 @@ Gera o site a partir da pasta `musicas/`.
 Corre sozinho no GitHub (ver .github/workflows/publicar.yml).
 Para testar no computador:  pip install mutagen pillow  &&  python scripts/gerar_site.py
 """
+import hashlib
 import html
 import json
 import os
@@ -308,8 +309,11 @@ def main():
         imagem_site = cfg["imagem"] if cfg["imagem"].startswith("http") else url + cfg["imagem"]
         if (RAIZ / cfg["imagem"]).exists():
             shutil.copy2(RAIZ / cfg["imagem"], SAIDA / cfg["imagem"])
+    # versão dos ficheiros: muda quando o código muda, para o browser não usar a cópia antiga
+    versao = hashlib.sha1(b"".join((RAIZ / f).read_bytes() for f in ("app.js", "style.css"))).hexdigest()[:10]
     pagina = (SAIDA / "index.html").read_text(encoding="utf-8")
     for chave, valor in {
+        "VERSAO": versao,
         "TITULO": cfg.get("titulo", "Músicas"),
         "SUBTITULO": cfg.get("subtitulo", ""),
         "IMAGEM": imagem_site,

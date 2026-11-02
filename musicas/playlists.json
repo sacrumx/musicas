@@ -15,5 +15,11 @@
       "01-O CHAMAMENTO DE SAGRES .mp3",
       "09-A ÚLTIMA NOITE DO INFANTE.mp3"
     ]
+  },
+  {
+    "id": "pergaminho",
+    "nome": "Pergaminho",
+    "descricao": "",
+    "musicas": []
   }
 ]
